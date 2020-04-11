@@ -1,9 +1,11 @@
 const path = require('path')
-
+const safePostCssParser = require('postcss-safe-parser')
 const webpack = require('webpack')
 const CompressionPlugin = require('compression-webpack-plugin')
 const ExtractPlugin = require('mini-css-extract-plugin')
 const HtmlPlugin = require('html-webpack-plugin')
+const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
 
 const HASH_STRING = '[name].[contenthash:8]'
 
@@ -56,6 +58,46 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                     'sass-loader'
                 ]
             }]
+        },
+        optimization: {
+            checkWasmTypes: false,
+            minimize: env.prod,
+            minimizer: [
+                new TerserPlugin({
+                    terserOptions: {
+                        compress: {
+                            comparisons: false,
+                            ecma: 5,
+                            inline: 2
+                        },
+                        mangle: { safari10: true },
+                        output: {
+                            ascii_only: true,
+                            comments: false,
+                            ecma: 5
+                        },
+                        parse: { ecma: 8 }
+                    }
+                }),
+                new OptimizeCSSPlugin({
+                    cssProcessorOptions: {
+                        map: false,
+                        parser: safePostCssParser
+                    },
+                    cssProcessorPluginOptions: {
+                        preset: ['default', {
+                            discardComments: { removeAll: true },
+                            minifyFontValues: { removeQuotes: false }
+                        }]
+                    }
+                })
+            ],
+            nodeEnv: false,
+            // Create decent config here for later
+            splitChunks: env.prod ? { chunks: 'all' } : false,
+            runtimeChunk: {
+                name: entry => `runtime-${entry.name}`
+            }
         },
         output: {
             chunkFilename: env.prod ? `${HASH_STRING}.js` : '[name].js',
