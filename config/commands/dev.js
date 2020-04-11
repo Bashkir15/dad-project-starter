@@ -5,7 +5,7 @@ const {
     createWebpackCompiler
 } = require('../webpack')
 
-module.exports = async function dev(config) {
+async function dev(config) {
     console.log('Preparing the dev server..')
     const compiler = createWebpackCompiler(createWebpackConfig(config))
     const devServer = new WebpackDevServer(compiler, {
@@ -16,7 +16,7 @@ module.exports = async function dev(config) {
             const { port } = server.listeningApp.address()
             console.log(`Devserver listening on port: ${port}`)
         },
-        open: 'Google Chrome',
+        open: true,
         overlay: { errors: true, warnings: false },
         port: 8081,
         proxy: {
@@ -30,3 +30,7 @@ module.exports = async function dev(config) {
         // Take this time to potentially start the express server
     })
 }
+
+dev.init = (passedConfig, args) => passedConfig
+
+module.exports = dev

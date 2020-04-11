@@ -11,7 +11,7 @@ const {
 const BUNDLE_GZIP_LIMIT = 512 * 1024
 const CHUNK_GZIP_LIMIT = 1024 * 1024
 
-module.exports = async function build(config) {
+async function build(config) {
     const { clientOutput } = config.paths
 
     console.log(chalk.cyan('Evaluating the previous build output if there is one..'))
@@ -42,3 +42,7 @@ module.exports = async function build(config) {
         CHUNK_GZIP_LIMIT
     )
 }
+
+build.init = (passedConfig, args) => passedConfig
+
+module.exports = build

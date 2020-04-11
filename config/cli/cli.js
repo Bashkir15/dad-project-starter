@@ -1,11 +1,10 @@
 const commandLineArgs = require('command-line-args')
 const commandLineCommands = require('command-line-commands')
 
-const commandMap = require('../commands')
-const schema = require('./command-schema')
+const { commandMap, commandSchema } = require('../commands')
 const createConfig = require('./create-config')
 
-const validCommands = Object.keys(schema)
+const validCommands = Object.keys(commandSchema)
 
 process.on('uncaughtException', err => {
     console.error(`Uncaught exception: ${err}`)
@@ -25,8 +24,9 @@ process.on('unhandledRejection', err => {
 
 async function run() {
     const { argv, command } = commandLineCommands(validCommands)
-    const args = commandLineArgs(schema[command].options, { argv })
-    const config = createConfig()
+    const args = commandLineArgs(commandSchema[command].options, { argv })
+    const configFactory = createConfig({ args, command })
+    const config = configFactory(commandMap[command].init)
 
     try {
         console.log(`Running command ${command}`)

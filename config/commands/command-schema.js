@@ -21,6 +21,13 @@ module.exports = {
     dev: {
         description: 'Start the application in development mode',
         options: [...globalOptions]
+    },
+    help: {
+        description: 'Shows this help message, or help for a specific command',
+        options: [...globalOptions, {
+            defaultOption: true,
+            description: 'The command to display help for',
+            name: 'command'
+        }]
     }
 }
-

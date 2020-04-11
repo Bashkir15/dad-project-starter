@@ -1,9 +1,11 @@
 const path = require('path')
 const safePostCssParser = require('postcss-safe-parser')
 const webpack = require('webpack')
+const AssetsPlugin = require('assets-webpack-plugin')
 const CompressionPlugin = require('compression-webpack-plugin')
 const ExtractPlugin = require('mini-css-extract-plugin')
 const HtmlPlugin = require('html-webpack-plugin')
+const ManifestPlugin = require('webpack-manifest-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
 
@@ -29,6 +31,10 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                         ]
                     }
                 }]
+            }, {
+                include: /node_modules/,
+                test: /\.mjs$/,
+                type: 'javascript/auto'
             }, {
                 test: /\.scss$/,
                 use: [
@@ -57,13 +63,17 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                     },
                     'sass-loader'
                 ]
-            }]
+            }],
+            strictExportPresence: true
         },
         optimization: {
             checkWasmTypes: false,
             minimize: env.prod,
             minimizer: [
                 new TerserPlugin({
+                    cache: true,
+                    parallel: true,
+                    sourceMap: true,
                     terserOptions: {
                         compress: {
                             comparisons: false,
@@ -81,7 +91,10 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 }),
                 new OptimizeCSSPlugin({
                     cssProcessorOptions: {
-                        map: false,
+                        map: {
+                            annotation: true,
+                            inline: false
+                        },
                         parser: safePostCssParser
                     },
                     cssProcessorPluginOptions: {
@@ -101,9 +114,14 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
         },
         output: {
             chunkFilename: env.prod ? `${HASH_STRING}.js` : '[name].js',
+            devtoolModuleFilenameTemplate: ({ resourcePath }) => {
+                return path.resolve(resourcePath).replace(/\\/g, '/')
+            },
             filename: env.prod ? `${HASH_STRING}.js` : '[name].js',
+            libraryTarget: 'var',
             path: paths.clientOutput,
-            publicPath: '/build/'
+            pathinfo: env.dev,
+            publicPath: paths.webpackPublicPath
         },
         plugins: [ 
             new HtmlPlugin({
@@ -120,13 +138,58 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 },
                 template: path.join(paths.clientDir, 'index.html')
             }),
+            new AssetsPlugin({
+                filename: 'assets.json',
+                path: paths.clientOutput
+            }),
+            new ManifestPlugin({
+                filter: item => item.isChunk,
+                fileName: path.join(paths.clientOutput, 'chunks.json'),
+                generate: (seed, files) => {
+                    const entrypoints = new Set()
+                    files.forEach(file => {
+                        ((file.chunk || {})._groups || []).forEach(group => {
+                            entrypoints.add(group)
+                        })
+                    })
+                    const entries = [...entrypoints]
+                    const entryArrayManifest = entries.reduce((acc, entry) => {
+                        const name = (entry.options || {}).name || (entry.runtimeChunk || {}).name
+                        const files = []
+                            .concat(
+                                ...(entry.chunks || []).map(chunk => {
+                                    return chunk.files.map(chunkFilePath => paths.webpackPublicPath + chunkFilePath)
+                                })
+                            )
+                            .filter(Boolean)
+                        
+                        const mapFiles = (passedFiles, ext) => passedFiles
+                                .map(item => (item.indexOf(ext) !== -1 ? item : null))
+                                .filter(Boolean)
+                        const cssFiles = mapFiles(files, '.css')
+                        const jsFiles = mapFiles(files, '.js')
 
+                        if (name) {
+                            return {
+                                ...acc,
+                                [name]: { css: cssFiles, js: jsFiles }
+                            }
+                        }
+                        return acc
+                    }, seed)
+                    return entryArrayManifest
+                }
+            }),
             currentCommand === 'dev' && new webpack.HotModuleReplacementPlugin(),
 
             env.prod && new ExtractPlugin({
+                allChunks: true,
                 chunkFilename: '[name].[contenthash:8].css',
                 filename: '[name].[contenthash:8].css'
             }),
+            env.prod && new webpack.HashedModuleIdsPlugin(),
+            env.prod && new webpack.optimize.AggressiveMergingPlugin(),
+
             env.prod && new CompressionPlugin({
                 algorithm: 'gzip',
                 compressionOptions: { level: 9 },
@@ -142,6 +205,9 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 test: /\.(js|css|html|svg)$/
             })
 
-        ].filter(Boolean)
+        ].filter(Boolean),
+        resolve: {
+            extensions: ['.js', '.json'],
+        }
     }
 }

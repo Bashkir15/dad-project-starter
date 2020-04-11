@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node config/cli/cli.js build",
     "dev": "node config/cli/cli.js dev",
+    "help": "node config/cli/cli.js help",
     "start": "node src/server/server.js"
   },
   "author": "",
@@ -16,9 +17,11 @@
     "@babel/plugin-proposal-object-rest-spread": "^7.9.5",
     "@babel/preset-env": "^7.9.5",
     "@babel/preset-react": "^7.9.4",
+    "assets-webpack-plugin": "^3.9.12",
     "babel-loader": "^8.1.0",
     "command-line-args": "^5.1.1",
     "command-line-commands": "^3.0.1",
+    "command-line-usage": "^6.1.0",
     "compression-webpack-plugin": "^3.1.0",
     "css-loader": "^3.5.2",
     "html-webpack-plugin": "^4.2.0",
@@ -35,7 +38,8 @@
     "terser-webpack-plugin": "^2.3.5",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
-    "webpack-dev-server": "^3.10.3"
+    "webpack-dev-server": "^3.10.3",
+    "webpack-manifest-plugin": "^2.2.0"
   },
   "dependencies": {
     "express": "^4.17.1",
