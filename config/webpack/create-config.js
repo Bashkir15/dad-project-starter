@@ -11,7 +11,6 @@ const ImagePlugin = require('imagemin-webpack-plugin').default
 const ManifestPlugin = require('webpack-manifest-plugin')
 
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
-const PreloadPlugin = require('preload-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
 const ScriptExtPlugin = require('script-ext-html-webpack-plugin')
 const WriteFilePlugin = require('write-file-webpack-plugin')
@@ -19,6 +18,7 @@ const WriteFilePlugin = require('write-file-webpack-plugin')
 const FONT_REGEX = /\.(woff|woff2|ttf|otf)$/
 const HASH_STRING = '[name].[contenthash:8]'
 const IMAGE_REGEX = /\.(jpe?g|png|gif|svg)$/
+const MAX_SIZE = 512000
 
 module.exports = function createConfig({ currentCommand, env, paths }) {
     return {
@@ -39,6 +39,9 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                             '@babel/plugin-proposal-class-properties'
                         ]
                     }
+                }, {
+                    loader: 'eslint-loader',
+                    options: { fix: true }
                 }]
             }, {
                 include: /node_modules/,
@@ -135,9 +138,7 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
             nodeEnv: false,
             // Create decent config here for later
             splitChunks: env.prod ? { chunks: 'all' } : false,
-            runtimeChunk: {
-                name: entry => `runtime-${entry.name}`
-            }
+            runtimeChunk: 'single'
         },
         output: {
             chunkFilename: env.prod ? `${HASH_STRING}.js` : '[name].js',
@@ -150,6 +151,9 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
             pathinfo: env.dev,
             publicPath: paths.webpackPublicPath
         },
+        performance: env.dev
+            ? false
+            : { hints: false, maxAssetSize: MAX_SIZE, maxEntrypointSize: MAX_SIZE },
         plugins: [ 
             // Force webpack to write to the filesystem instead of just in memory
             new WriteFilePlugin(),
@@ -168,14 +172,6 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                     useShortDoctype: true
                 },
                 template: path.join(paths.clientDir, 'index.html')
-            }),
-
-            // Give font assets a rel-preload
-            new PreloadPlugin({
-                as: entry => (FONT_REGEX.test(entry) && 'font'),
-                fileWhitelist: [FONT_REGEX],
-                include: 'allAssets',
-                rel: 'preload'
             }),
 
             // Give script tags the attribute of defer
@@ -243,7 +239,7 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 pngquant: { quality: '75' },
                 test: IMAGE_REGEX
             }),
-            
+
             env.prod && new webpack.HashedModuleIdsPlugin(),
             env.prod && new webpack.optimize.AggressiveMergingPlugin(),
 
