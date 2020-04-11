@@ -1,15 +1,24 @@
 const path = require('path')
 const safePostCssParser = require('postcss-safe-parser')
+const imageminMozJpeg = require('imagemin-mozjpeg')
+
 const webpack = require('webpack')
 const AssetsPlugin = require('assets-webpack-plugin')
 const CompressionPlugin = require('compression-webpack-plugin')
 const ExtractPlugin = require('mini-css-extract-plugin')
 const HtmlPlugin = require('html-webpack-plugin')
+const ImagePlugin = require('imagemin-webpack-plugin').default
 const ManifestPlugin = require('webpack-manifest-plugin')
-const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
-const TerserPlugin = require('terser-webpack-plugin')
 
+const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
+const PreloadPlugin = require('preload-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
+const ScriptExtPlugin = require('script-ext-html-webpack-plugin')
+const WriteFilePlugin = require('write-file-webpack-plugin')
+
+const FONT_REGEX = /\.(woff|woff2|ttf|otf)$/
 const HASH_STRING = '[name].[contenthash:8]'
+const IMAGE_REGEX = /\.(jpe?g|png|gif|svg)$/
 
 module.exports = function createConfig({ currentCommand, env, paths }) {
     return {
@@ -63,6 +72,24 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                     },
                     'sass-loader'
                 ]
+            }, {
+                test: IMAGE_REGEX,
+                use: [{
+                    loader: 'file-loader',
+                    options: {
+                        esModule: false,
+                        name: 'images/[name].[ext]'
+                    }
+                }]
+            }, {
+                test: FONT_REGEX,
+                use: [{
+                    loader: 'file-loader',
+                    options: {
+                        esModule: false,
+                        name: 'fonts/[name].[ext]'
+                    }
+                }]
             }],
             strictExportPresence: true
         },
@@ -124,6 +151,10 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
             publicPath: paths.webpackPublicPath
         },
         plugins: [ 
+            // Force webpack to write to the filesystem instead of just in memory
+            new WriteFilePlugin(),
+
+            // Parse our template html files and inject our scripts and copy them to the output dir
             new HtmlPlugin({
                 filename: 'index.html',
                 minify: {
@@ -138,6 +169,20 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 },
                 template: path.join(paths.clientDir, 'index.html')
             }),
+
+            // Give font assets a rel-preload
+            new PreloadPlugin({
+                as: entry => (FONT_REGEX.test(entry) && 'font'),
+                fileWhitelist: [FONT_REGEX],
+                include: 'allAssets',
+                rel: 'preload'
+            }),
+
+            // Give script tags the attribute of defer
+            new ScriptExtPlugin({
+                defaultAttribute: 'defer'
+            }),
+
             new AssetsPlugin({
                 filename: 'assets.json',
                 path: paths.clientOutput
@@ -180,13 +225,25 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                     return entryArrayManifest
                 }
             }),
+
+            // When we run the dev command we need to tell webpack to use hot module replacement
             currentCommand === 'dev' && new webpack.HotModuleReplacementPlugin(),
 
+            // Extract the css into a file for production
             env.prod && new ExtractPlugin({
                 allChunks: true,
                 chunkFilename: '[name].[contenthash:8].css',
                 filename: '[name].[contenthash:8].css'
             }),
+
+            // Compress images in production
+            env.prod && new ImagePlugin({
+                gifsicle: { optimizationLevel: 9 },
+                plugins: [imageminMozJpeg({ quality: '75' })],
+                pngquant: { quality: '75' },
+                test: IMAGE_REGEX
+            }),
+            
             env.prod && new webpack.HashedModuleIdsPlugin(),
             env.prod && new webpack.optimize.AggressiveMergingPlugin(),
 
