@@ -1,5 +1,13 @@
+.editorconfig
+.git
+.gitignore
+
+build
+
 DockerFile
 docker-compose.yml
+
 node_modules
+
 LICENSE
 README.md
