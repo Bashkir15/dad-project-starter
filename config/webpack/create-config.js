@@ -31,6 +31,27 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 use: [
                     env.prod ? ExtractPlugin.loader : 'style-loader',
                     'css-loader',
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            ident: 'postcss',
+                            plugins: () => [
+                                require('postcss-flexbugs-fixes'),
+                                require('postcss-preset-env')({
+                                    autoprefixer: {
+                                        flexbox: 'no-2009',
+                                        grid: 'autoplace'
+                                    },
+                                    features: {
+                                        'nesting-rules': true,
+                                        'prefers-color-scheme-query': true
+                                    },
+                                    stage: 2
+                                })
+                            ]
+
+                        }
+                    },
                     'sass-loader'
                 ]
             }]
@@ -47,7 +68,7 @@ module.exports = function createConfig({ currentCommand, env, paths }) {
                 template: path.join(paths.clientDir, 'index.html')
             }),
             currentCommand === 'dev' && new webpack.HotModuleReplacementPlugin(),
-            
+
             env.prod && new ExtractPlugin({
                 chunkFilename: '[name].[contenthash:8].css',
                 filename: '[name].[contenthash:8].css'
